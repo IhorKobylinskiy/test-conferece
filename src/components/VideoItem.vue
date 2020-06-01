@@ -1,6 +1,5 @@
 <template>
   <video 
-    controls
     autoplay
     playsinline 
     :srcObject.prop="stream.srcObject"

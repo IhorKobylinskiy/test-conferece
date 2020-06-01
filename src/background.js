@@ -1,6 +1,6 @@
 'use strict'
 
-import { app, protocol, BrowserWindow } from 'electron'
+import { app, protocol, BrowserWindow, screen } from 'electron'
 import {
   createProtocol,
   /* installVueDevtools */
@@ -16,9 +16,11 @@ protocol.registerSchemesAsPrivileged([{scheme: 'app', privileges: { secure: true
 
 function createWindow () {
   // Create the browser window.
-  win = new BrowserWindow({ width: 800, height: 600, webPreferences: {
+  const {width, height} = screen.getPrimaryDisplay().workAreaSize
+  win = new BrowserWindow({ width, height, webPreferences: {
     nodeIntegration: true
-  } })
+  } });
+  //win.setFullScreen(true);
 
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode

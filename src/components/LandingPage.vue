@@ -4,11 +4,11 @@
         :cellSize="cellSizes"
         :maxRowCount="3"
         :maxColCount="3"
+        :margin="0"
         :layout.sync="layoutJson">
           <dnd-grid-box 
             :boxId="stream.id"
             v-for="(stream, index) in activeStreams"
-            resizeVisible="true"
             v-bind:key="index"
           >
               <video-item
@@ -21,8 +21,7 @@
 </template>
 
 <script>
-  //import {mapState} from 'vuex';
-  //import Vue from 'vue';
+  
   import * as io from 'socket.io-client';
 
   import RTCMultiConnection from 'rtcmulticonnection';
@@ -69,12 +68,69 @@
       leaveRoom(streamId){
         this.activeStreams = this.activeStreams.filter((activeStream)=>activeStream.id!=streamId);
         this.layoutJson = this.layoutJson.filter((item)=>item.streamid!=streamId);
-        console.log(this.activeStreams, this.layoutJson)
       },
 
       onLayoutUpdate (evt) {
-        console.log(evt);
           this.layout = evt.layout
+      },
+
+      createConnection(dummyDeviceId = false){
+        this.connection = new RTCMultiConnection();
+
+        this.connection.socketURL = 'https://rtcmulticonnection.herokuapp.com:443/';
+
+        this.connection.socketMessageEvent = 'video-conference-demo';
+        this.connection.maxParticipantsAllowed = 9;
+        this.connection.bandwidth = {
+            audio: 50,  
+            video: 256, 
+            screen: 300 
+        };
+        
+        this.connection.session = {
+          audio: true,
+          video: true
+        };
+
+        this.connection.onstream = (event) => {
+            if(!this.activeStreams.some((activeStream)=>activeStream.id==event.streamid)){
+              this.activeStreams.push({
+                  id: event.streamid,
+                  srcObject: event.stream,
+                  muted: event.type === 'local'
+              });
+              
+              this.layoutJson.push({
+                id: event.streamid,
+                streamid: event.streamid,
+                hidden: false,
+                pinned: false,
+                position: {
+                    x: this.activeStreams.length<=3?this.activeStreams.length-1:this.activeStreams.length%3-1,
+                    y: this.activeStreams.length<=3?0:this.activeStreams.length%3,
+                    w: 1, 
+                    h: 0
+                 }
+              });
+            }
+        };
+
+        this.connection.onstreamended = (event) => {
+            this.leaveRoom(event.streamid);
+        };
+        console.log(dummyDeviceId);
+        if(dummyDeviceId){
+          this.connection.mediaConstraints.video.mandatory = {
+              sourceId: dummyDeviceId
+          };
+          this.connection.applyConstraints({
+              video: {
+                width: 480,
+                height: 480
+              }
+          });
+        }
+        this.joinRoom();
       }
 
     },
@@ -82,61 +138,20 @@
     mounted(){
 
       this.cellSizes = {
-        w: window.innerWidth/3,
+        w: window.innerWidth/3-20,
         h: window.innerHeight/3
       }
-
-      this.connection = new RTCMultiConnection();
-
-      this.connection.socketURL = 'https://rtcmulticonnection.herokuapp.com:443/';
-
-      this.connection.socketMessageEvent = 'video-conference-demo';
-
-      this.connection.session = {
-          audio: true,
-          video: true
-      };
-
-      this.connection.sdpConstraints.mandatory = {
-          OfferToReceiveAudio: true,
-          OfferToReceiveVideo: true
-      };
+    
+      navigator.mediaDevices.enumerateDevices().then((res)=>{
+        let dummyDevice = res.find((device)=>device.label.indexOf('Dummy')!=-1);
+        if(dummyDevice){
+          this.createConnection(dummyDevice.deviceId);
+        } else {
+          this.createConnection();
+        }
+      }, (err)=>{console.log(err)})
+     
       
-      this.connection.candidates = {
-         turn:     false,
-         stun:    false,
-         host:    true
-      };
-      //console.log(navigator.mediaDevices.enumerateDevices())
-      this.connection.onstream = (event) => {
-          console.log('add stream', event);
-          this.activeStreams.push({
-              id: event.streamid,
-              srcObject: event.stream,
-              muted: event.type === 'local'
-          });
-          this.layoutJson.push({
-            id: event.streamid,
-            streamid: event.streami,
-            hidden: false,
-            pinned: false,
-            position: {
-                x: 2,
-                y: 0,
-                w: 1, 
-                h: 0
-             }
-          });
-      };
-
-      this.connection.onstreamended = (event) => {
-          this.leaveRoom(event.streamid);
-      };
-
-      this.connection.mediaConstraints.video.optional = [{
-          sourceId: 'c689efad5fbe6735b15eb336468673c6ceeb5c963173da859d196d40fc78e735'
-      }];
-      this.joinRoom();
     },
   }
 </script>
@@ -149,9 +164,13 @@
   .dnd-grid-container{
     min-height: 100vh !important;
   }
+  .dragSelector{
+
+  }
   .dnd-grid-box video{
-      width: 100%;
-      vertical-align: top;
-      object-fit: fill;
-    }
+    max-width: 100%;
+    vertical-align: top;
+    object-fit: fill;
+  }
+
 </style>
