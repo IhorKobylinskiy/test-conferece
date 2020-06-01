@@ -92,6 +92,22 @@
           video: true
         };
 
+        this.connection.applyConstraints({
+              video: {
+                width: 480,
+                height: 480
+              }
+          });
+
+        this.connection.iceServers = [{
+            'urls': [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302',
+                'stun:stun.l.google.com:19302?transport=udp',
+            ]
+        }];
+
         this.connection.onstream = (event) => {
             if(!this.activeStreams.some((activeStream)=>activeStream.id==event.streamid)){
               this.activeStreams.push({
@@ -118,17 +134,13 @@
         this.connection.onstreamended = (event) => {
             this.leaveRoom(event.streamid);
         };
+
         console.log(dummyDeviceId);
         if(dummyDeviceId){
           this.connection.mediaConstraints.video.mandatory = {
               sourceId: dummyDeviceId
           };
-          this.connection.applyConstraints({
-              video: {
-                width: 480,
-                height: 480
-              }
-          });
+          
         }
         this.joinRoom();
       }
